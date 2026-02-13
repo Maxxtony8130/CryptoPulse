@@ -1,50 +1,101 @@
-# Welcome to your Expo app 👋
+# CryptoPulse - High-Frequency Crypto Pulse
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+React Native (Expo) app that tracks top crypto pairs from Binance WebSocket with production-grade state handling and performance controls.
 
-## Get started
+## Assignment Goals Covered
 
-1. Install dependencies
+- Real-time WebSocket for top 10 pairs via Binance `24hrTicker`
+- Clean architecture split into `domain`, `infrastructure`, `store`, and `presentation`
+- UI update batching every `1000ms` while network events arrive every `250-500ms`
+- Optimized list rendering with `FlashList`
+- Reanimated price flash for up/down changes
+- Resilience with exponential backoff reconnect + app lifecycle handling
 
-   ```bash
-   npm install
-   ```
+## Tech Stack
 
-2. Start the app
+- Expo SDK 54 + React Native
+- Zustand (state management)
+- Shopify FlashList (large/fast list rendering)
+- React Native Reanimated + Worklets
+- Vitest (unit tests)
 
-   ```bash
-   npx expo start
-   ```
+## Project Structure
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```txt
+app/
+  _layout.tsx
+  index.tsx
+src/
+  domain/
+    models/Ticker.ts
+  infrastructure/
+    websocket/BinanceSocket.ts
+  hooks/
+    useAppState.ts
+    useTickerFeed.ts
+  store/
+    tickerStore.ts
+  presentation/
+    components/TickerCard.tsx
+    screens/HomeScreen.tsx
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Data Flow
 
-## Learn more
+1. `BinanceSocket` connects and sends subscribe payload for top pairs.
+2. Incoming ticker events are parsed in `mapBinanceEventToTicker`.
+3. Events are buffered in-memory (`pendingTickersRef`) at high frequency.
+4. Buffer is flushed into Zustand only once every `1000ms`.
+5. UI reads normalized state and renders with `FlashList`.
 
-To learn more about developing your project with Expo, look at the following resources:
+This prevents UI thrashing while still preserving high-frequency feed ingestion.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Performance Guardrails
 
-## Join the community
+- Batch write interval: `UI_FLUSH_INTERVAL_MS = 1000`
+- Dev debug panel shows:
+  - WebSocket messages/sec
+  - UI flushes/sec
+  - pending symbol count
+  - total messages and total flushes
 
-Join our community of developers creating universal apps.
+## Reconnection Strategy
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- Exponential backoff with jitter:
+  - `delay = min(1000 * 2^(attempt-1), 30000) + random(0..499)`
+- UI shows reconnect attempt and countdown when reconnect is scheduled.
+
+## App Lifecycle Policy
+
+- App active: keep socket connected
+- App background/inactive: flush pending data and close socket (battery-friendly)
+- App foreground: reconnect automatically
+
+## Setup
+
+```bash
+yarn install
+```
+
+## Run
+
+```bash
+yarn start
+```
+
+## Validation Commands
+
+```bash
+yarn lint
+yarn test
+yarn tsc --noEmit
+```
+
+## Notes
+
+- If you see Worklets/Reanimated mismatch, run:
+
+```bash
+npx expo install react-native-worklets react-native-reanimated
+npx expo start --clear
+```
