@@ -1,34 +1,18 @@
 import { FlashList } from '@shopify/flash-list';
 import { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTickerFeed } from '../../hooks/useTickerFeed';
 import { useTickerStore } from '../../store/tickerStore';
 import { TickerCard } from '../components/TickerCard';
-
-const formatCompact = (value: number) => {
-  if (!Number.isFinite(value)) {
-    return '0';
-  }
-
-  const absValue = Math.abs(value);
-  if (absValue >= 1_000_000_000_000) {
-    return `${(value / 1_000_000_000_000).toFixed(2)}T`;
-  }
-  if (absValue >= 1_000_000_000) {
-    return `${(value / 1_000_000_000).toFixed(2)}B`;
-  }
-  if (absValue >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(2)}M`;
-  }
-  if (absValue >= 1_000) {
-    return `${(value / 1_000).toFixed(2)}K`;
-  }
-
-  return value.toFixed(2);
-};
+import type { AppTheme } from '../theme/appTheme';
+import { getAppTheme } from '../theme/appTheme';
+import { formatQuoteVolume } from '../utils/numberFormat';
 
 export function HomeScreen() {
+  const scheme = useColorScheme();
+  const theme = useMemo(() => getAppTheme(scheme), [scheme]);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const tickers = useTickerStore((state) => state.tickerList);
   const connectionStatus = useTickerStore((state) => state.connectionStatus);
@@ -111,21 +95,23 @@ export function HomeScreen() {
         <View style={styles.metricPill}>
           <Text style={styles.metricPillLabel}>24h Quote Vol</Text>
           <Text style={styles.metricPillValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
-            {formatCompact(marketStats.totalQuoteVolume)}
+            {formatQuoteVolume(marketStats.totalQuoteVolume)}
           </Text>
         </View>
       </View>
 
-      {__DEV__ ? (
+      {/* {__DEV__ ? (
         <View style={styles.debugPanel}>
           <Text style={styles.debugTitle}>Debug Stats (dev only)</Text>
           <Text style={styles.debugText}>WS msg/s: {debugStats.incomingMessagesPerSecond}</Text>
           <Text style={styles.debugText}>UI flush/s: {debugStats.uiFlushesPerSecond}</Text>
           <Text style={styles.debugText}>Pending symbols: {debugStats.pendingSymbols}</Text>
-          <Text style={styles.debugText}>Total messages: {formatCompact(debugStats.totalMessages)}</Text>
-          <Text style={styles.debugText}>Total flushes: {formatCompact(debugStats.totalUiFlushes)}</Text>
+          <Text style={styles.debugText}>
+            Total messages: {formatCompactNumber(debugStats.totalMessages, 2)}
+          </Text>
+          <Text style={styles.debugText}>Total flushes: {formatCompactNumber(debugStats.totalUiFlushes, 2)}</Text>
         </View>
-      ) : null}
+      ) : null} */}
 
       {tickers.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -136,7 +122,7 @@ export function HomeScreen() {
         <FlashList
           data={tickers}
           keyExtractor={(item) => item.symbol}
-          renderItem={({ item }) => <TickerCard ticker={item} />}
+          renderItem={({ item }) => <TickerCard ticker={item} theme={theme} />}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 32 }]}
         />
@@ -146,11 +132,12 @@ export function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: '#0b0b16',
+    backgroundColor: theme.screen.background,
   },
   header: {
     flexDirection: 'row',
@@ -161,23 +148,23 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 29,
     fontWeight: '700',
-    color: '#fff',
+    color: theme.screen.title,
   },
   subtitle: {
     marginTop: 2,
-    color: '#8c92b6',
+    color: theme.screen.subtitle,
     fontSize: 12,
   },
   reconnectButton: {
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#2e3350',
+    borderColor: theme.screen.reconnectBorder,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    backgroundColor: '#161a2d',
+    backgroundColor: theme.screen.reconnectBackground,
   },
   reconnectText: {
-    color: '#d7dcff',
+    color: theme.screen.reconnectText,
     fontWeight: '600',
     fontSize: 12,
   },
@@ -193,9 +180,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: '#15182b',
+    backgroundColor: theme.screen.statusBadgeBackground,
     borderWidth: 1,
-    borderColor: '#2b3050',
+    borderColor: theme.screen.statusBadgeBorder,
   },
   statusDot: {
     width: 8,
@@ -204,21 +191,21 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   statusText: {
-    color: '#d6dcff',
+    color: theme.screen.statusText,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.4,
   },
   updateText: {
     fontSize: 11,
-    color: '#8e94bc',
+    color: theme.screen.updateText,
   },
   statusRight: {
     alignItems: 'flex-end',
   },
   retryText: {
     fontSize: 11,
-    color: '#fbbf24',
+    color: theme.screen.retryText,
     marginBottom: 2,
     fontWeight: '600',
   },
@@ -231,26 +218,26 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#2b3050',
-    backgroundColor: '#131a31',
+    borderColor: theme.screen.metricPillBorder,
+    backgroundColor: theme.screen.metricPillBackground,
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
   metricPillLabel: {
-    color: '#8892c8',
+    color: theme.screen.metricPillLabel,
     fontSize: 10,
     marginBottom: 3,
   },
   metricPillValue: {
-    color: '#e2e6ff',
+    color: theme.screen.metricPillValue,
     fontSize: 12,
     fontWeight: '700',
   },
   positiveText: {
-    color: '#34d399',
+    color: theme.screen.positive,
   },
   negativeText: {
-    color: '#fb7185',
+    color: theme.screen.negative,
   },
   listContent: {
     paddingBottom: 32,
@@ -258,39 +245,39 @@ const styles = StyleSheet.create({
   emptyContainer: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#22284a',
-    backgroundColor: '#151a30',
+    borderColor: theme.screen.emptyBorder,
+    backgroundColor: theme.screen.emptyBackground,
     padding: 16,
     marginTop: 12,
   },
   empty: {
-    color: '#d7dcff',
+    color: theme.screen.emptyText,
     fontSize: 14,
     fontWeight: '600',
   },
   emptyHint: {
     marginTop: 6,
-    color: '#9097bf',
+    color: theme.screen.emptyHint,
     fontSize: 12,
   },
   debugPanel: {
     marginVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#2a2f4f',
-    backgroundColor: '#0f1324',
+    borderColor: theme.screen.debugBorder,
+    backgroundColor: theme.screen.debugBackground,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   debugTitle: {
     fontSize: 11,
-    color: '#98a4e8',
+    color: theme.screen.debugTitle,
     fontWeight: '700',
     marginBottom: 6,
   },
   debugText: {
     fontSize: 11,
-    color: '#bec8ff',
+    color: theme.screen.debugText,
     marginBottom: 2,
   },
 });

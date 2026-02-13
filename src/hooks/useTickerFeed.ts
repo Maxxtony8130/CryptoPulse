@@ -63,10 +63,6 @@ export const useTickerFeed = (symbols: readonly SupportedPair[] = TOP_TICKER_PAI
     applyTickerBatch(batch);
     uiFlushesPerSecondRef.current += 1;
     totalUiFlushesRef.current += 1;
-
-    if (__DEV__ && lastRawEventRef.current) {
-      console.log('[BinanceTickerEvent]', lastRawEventRef.current);
-    }
   }, [applyTickerBatch]);
 
   const disconnectSocket = useCallback(() => {

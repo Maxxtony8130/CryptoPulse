@@ -1,101 +1,118 @@
-# CryptoPulse - High-Frequency Crypto Pulse
+# CryptoPulse
 
-React Native (Expo) app that tracks top crypto pairs from Binance WebSocket with production-grade state handling and performance controls.
+High-frequency crypto ticker app built with Expo + React Native.
 
-## Assignment Goals Covered
+Tracks top 10 Binance pairs in real-time, batches UI updates to avoid thrashing, and handles reconnect/lifecycle like a production mobile app.
 
-- Real-time WebSocket for top 10 pairs via Binance `24hrTicker`
-- Clean architecture split into `domain`, `infrastructure`, `store`, and `presentation`
-- UI update batching every `1000ms` while network events arrive every `250-500ms`
-- Optimized list rendering with `FlashList`
-- Reanimated price flash for up/down changes
-- Resilience with exponential backoff reconnect + app lifecycle handling
+## Highlights
 
-## Tech Stack
+- Live Binance WebSocket stream for top 10 pairs (`24hrTicker`)
+- Clean architecture (Domain / Infrastructure / Application-State / Presentation)
+- Zustand store with controlled UI batching (`1000ms` flush window)
+- `FlashList` rendering + Reanimated price flash (green on up, red on down)
+- Exponential backoff reconnect with jitter + retry countdown in UI
+- AppState-aware socket behavior (disconnect in background, reconnect on active)
+- System dark/light mode support with theme-aware status bar
+- Finance-friendly number formatting (price precision, compact volume, spread in bps)
+- Unit tests for mapper, store logic, and backoff strategy
 
-- Expo SDK 54 + React Native
-- Zustand (state management)
-- Shopify FlashList (large/fast list rendering)
-- React Native Reanimated + Worklets
-- Vitest (unit tests)
+## Stack
 
-## Project Structure
+- Expo SDK 54
+- React Native 0.81
+- Zustand
+- `@shopify/flash-list`
+- `react-native-reanimated` + `react-native-worklets`
+- Vitest
+
+## Architecture
 
 ```txt
 app/
-  _layout.tsx
-  index.tsx
+  _layout.tsx                # routing shell + status bar + themed background
+  index.tsx                  # entry route -> HomeScreen
+
 src/
   domain/
-    models/Ticker.ts
+    models/Ticker.ts         # payload contracts + parsed model + mapper
+
   infrastructure/
-    websocket/BinanceSocket.ts
+    websocket/BinanceSocket.ts  # ws connect/subscribe/parse/reconnect
+
   hooks/
-    useAppState.ts
-    useTickerFeed.ts
+    useAppState.ts           # app lifecycle listener
+    useTickerFeed.ts         # stream orchestration + batching + retry metadata
+
   store/
-    tickerStore.ts
+    tickerStore.ts           # normalized state + direction + ordered list
+
   presentation/
-    components/TickerCard.tsx
-    screens/HomeScreen.tsx
+    screens/HomeScreen.tsx   # status, metrics strip, list container
+    components/TickerCard.tsx # per-ticker UI + Reanimated flash
+    theme/appTheme.ts        # dark/light theme tokens
+    utils/numberFormat.ts    # numeric formatting helpers
 ```
 
-## Data Flow
+## Data Pipeline
 
-1. `BinanceSocket` connects and sends subscribe payload for top pairs.
-2. Incoming ticker events are parsed in `mapBinanceEventToTicker`.
-3. Events are buffered in-memory (`pendingTickersRef`) at high frequency.
-4. Buffer is flushed into Zustand only once every `1000ms`.
-5. UI reads normalized state and renders with `FlashList`.
+1. `HomeScreen` starts `useTickerFeed`.
+2. `useTickerFeed` opens `BinanceSocket`.
+3. Socket subscribes to:
+   - `btcusdt@ticker`, `ethusdt@ticker`, ..., `dotusdt@ticker`
+4. Incoming raw payload is mapped by `mapBinanceEventToTicker`.
+5. Events are buffered in memory (`pendingTickersRef`) at high frequency.
+6. Every 1000ms, one batched store write updates UI state.
+7. `FlashList` renders `tickerList`; `TickerCard` animates price direction changes.
 
-This prevents UI thrashing while still preserving high-frequency feed ingestion.
+## Performance Strategy
 
-## Performance Guardrails
+- Input can arrive many times per second.
+- UI commits only once per second.
+- This reduces re-renders and keeps list animation smooth under load.
 
-- Batch write interval: `UI_FLUSH_INTERVAL_MS = 1000`
-- Dev debug panel shows:
-  - WebSocket messages/sec
-  - UI flushes/sec
-  - pending symbol count
-  - total messages and total flushes
+## Resilience Strategy
 
-## Reconnection Strategy
+- Reconnect delay:
+  - `min(1000 * 2^(attempt-1), 30000) + jitter(0..499ms)`
+- Retry attempt and countdown are exposed in UI.
+- Background/inactive:
+  - flush pending data
+  - close socket (battery/network friendly)
+- Active:
+  - reconnect automatically
 
-- Exponential backoff with jitter:
-  - `delay = min(1000 * 2^(attempt-1), 30000) + random(0..499)`
-- UI shows reconnect attempt and countdown when reconnect is scheduled.
+## Theme and Status Bar
 
-## App Lifecycle Policy
+- App follows system theme using `useColorScheme()`.
+- `app/_layout.tsx` sets theme-aware `StatusBar` and screen background.
+- All screen/card colors come from centralized tokens in `appTheme.ts`.
 
-- App active: keep socket connected
-- App background/inactive: flush pending data and close socket (battery-friendly)
-- App foreground: reconnect automatically
-
-## Setup
-
-```bash
-yarn install
-```
-
-## Run
+## Scripts
 
 ```bash
 yarn start
-```
-
-## Validation Commands
-
-```bash
+yarn android
+yarn ios
+yarn web
 yarn lint
 yarn test
 yarn tsc --noEmit
 ```
 
-## Notes
+## Setup
 
-- If you see Worklets/Reanimated mismatch, run:
+```bash
+yarn install
+yarn start
+```
+
+## Troubleshooting
+
+If Worklets/Reanimated version mismatch appears:
 
 ```bash
 npx expo install react-native-worklets react-native-reanimated
 npx expo start --clear
 ```
+
+If simulator still shows old native binaries, reinstall the app and rerun.

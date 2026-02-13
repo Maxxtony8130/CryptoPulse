@@ -1,7 +1,7 @@
 import { create } from 'zustand';
-import type { SocketStatus } from '../infrastructure/websocket/BinanceSocket';
 import type { Ticker } from '../domain/models/Ticker';
 import { TOP_TICKER_PAIRS } from '../domain/models/Ticker';
+import type { SocketStatus } from '../infrastructure/websocket/BinanceSocket';
 
 interface TickerStore {
   tickersBySymbol: Record<string, Ticker>;
